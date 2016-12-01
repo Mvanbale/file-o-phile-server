@@ -1,6 +1,7 @@
 const debug = require('debug')('server:registerclient');
+const commandHandler = require('./commandHandler');
+let dataBuffer = '';
 module.exports = (socket) => {
-  debug(socket);
   // handle errors or socket closing
   socket.on('error', (err) => {
     debug('Socket closed');
@@ -8,29 +9,33 @@ module.exports = (socket) => {
   });
   // hook up our data event to our manager
   socket.on('data', (data) => {
-    debug(data.toString())
-    let messages = data.toString().split(/(.*[A-Z] idh14sync.*\n\n)/g);
-    debug(messages);
-    messages = messages.filter(msg => msg.length);
-    const mergedMessages = [];
-    for (let x = 0; x < messages.length; x++) {
-      if (x % 2 === 0) {
-        mergedMessages.push({
-          command: messages[x],
-          json: messages[x + 1]
-        });
-      }
+    dataBuffer += data.toString();
+    const openingBracketCount = (dataBuffer.match(/{/g) || []).length;
+    const closingBracketCount = (dataBuffer.match(/}/g) || []).length;
+    if (!openingBracketCount || !(openingBracketCount === closingBracketCount)) {
+      debug('Missing some brackets, so waiting for more data');
+      return;
     }
-    debug({
-      mergedMessages
-    });
-    mergedMessages.map(parseMessage, socket);
+    debug('equal amount of brackets');
+    debug(1);
+    const lastFoundBracket = dataBuffer.lastIndexOf('}') + 1;
+        debug(2);
+        let message = dataBuffer.slice(0, lastFoundBracket);
+        debug(3);
+    message = message.split('\n\n').filter(msg => msg.length);
+    debug('saf');
+    message = {command: message[0], json: message[1]};
+    debug('Sending message to parsemessage');
+    debug(message.command);
+    parseMessage(message, socket);
+    dataBuffer = dataBuffer.slice(lastFoundBracket);
   });
 };
 
 
 const parseMessage = (data, socket) => {
   let parsedData = {};
+  debug(data.command);
   if (data.command.indexOf('idh14sync/1.0') !== -1) {
     parsedData.command = data.command.split(' ')[0];
     debug('Sync protocol header recognized.');
@@ -39,11 +44,25 @@ const parseMessage = (data, socket) => {
   try {
     parsedData.info = JSON.parse(data.json);
     debug('Decoding:')
-    debug(data.json);
   } catch (err) {
     debug(err);
     debug('Failed to parse json object from message');
     return;
   }
-  // commandHandler(parsedData, socket);
+  switch (parsedData.command) {
+    case 'PUT':
+      commandHandler.handlePut(parsedData, socket);
+      break;
+    case 'LIST':
+      commandHandler.handleList(parsedData, socket);
+      break;
+    case 'GET':
+      commandHandler.handleGet(parsedData, socket);
+      break;
+    case 'DELETE':
+      commandHandler.handleDelete(parsedData, socket);
+      break;
+    default:
+      break;
+  }
 }

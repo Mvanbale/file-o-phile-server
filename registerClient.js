@@ -1,7 +1,10 @@
 const debug = require('debug')('server:registerclient');
 const commandHandler = require('./commandHandler');
-let dataBuffer = '';
+
 module.exports = (socket) => {
+  let openingBracketCount = 0;
+  let closingBracketCount = 0;
+  let dataBuffer = '';
   // handle errors or socket closing
   socket.on('error', (err) => {
     debug('Socket closed');
@@ -9,13 +12,16 @@ module.exports = (socket) => {
   });
   // hook up our data event to our manager
   socket.on('data', (data) => {
-    dataBuffer += data.toString();
-    const openingBracketCount = (dataBuffer.match(/{/g) || []).length;
-    const closingBracketCount = (dataBuffer.match(/}/g) || []).length;
+    data = data.toString();
+    dataBuffer += data;
+    openingBracketCount += (data.match('{') || []).length;
+    closingBracketCount += (data.match('}') || []).length;
     if (!openingBracketCount || !(openingBracketCount === closingBracketCount)) {
-      debug('Missing some brackets, so waiting for more data');
+      debug(`Missing some brackets, so waiting for more data, ${openingBracketCount}, ${closingBracketCount}`);
       return;
     }
+    openingBracketCount = 0;
+    closingBracketCount = 0;
     debug('equal amount of brackets');
     debug(1);
     const lastFoundBracket = dataBuffer.lastIndexOf('}') + 1;

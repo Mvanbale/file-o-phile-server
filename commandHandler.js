@@ -50,10 +50,37 @@ ${JSON.stringify(responseObject)}`);
 };
 
 module.exports.handleGet = (command, socket) => {
+  debug('Handling GET');
+  debug(socket);
   // process command
+  if (registry.has(command.info.filename)) {
+    registry.get(command.info.filename).push(command.info.checksum);
+  }
+  fs.readFile('./filestore/' + command.info.filename, 'utf8', function(err, contents) {
+      console.log(contents);
+      util.base64_encode(contents, './filestore/' + command.info.filename);
+      const responseObject = {
+        'status': 200,
+        'message': ' Contents in body', 
+        'filename': command.info.filename,
+        'checksum' : command.info.checksum,
+        'content': contents
+      };
 
-  // send response to client
-  socket.write();
+      // write out response
+      debug({
+        responseObject
+      });
+      socket.write(`RESPONSE idh14sync/1.0
+
+${JSON.stringify(responseObject)}`);
+      // process command
+
+      // send response to client
+      socket.write();
+  });
+  
+
 };
 
 module.exports.handleDelete = (command, socket) => {

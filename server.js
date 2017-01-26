@@ -7,8 +7,8 @@ const registerClient = require('./registerClient');
 debug('Port we are registering on:' + port);
 console.log('server.js');
 const server = net.createServer(registerClient);
-server.listen(port, function () {
-  debug('Server is now listening');
+server.listen(port, function() {
+    debug('Server is now listening');
 });
 
 server.on('error', debug)
